@@ -24,6 +24,7 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "backtrace", "Backtrace the stack", mon_backtrace },
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -82,13 +83,57 @@ start_overflow(void)
     // hint: You can use the read_pretaddr function to retrieve 
     //       the pointer to the function call return address;
 
-    char str[256] = {};
+    //       added on May 11th
+    //       reserve a correct return address
+    //       using asembly code violently to change the stack
+
+    char str[256] = {0};
     int nstr = 0;
-    char *pret_addr;
+    uint32_t pret_addr;
+    // address of return address
+    uint32_t addr_of_raddr;
+    uint32_t ebp;    
+    int i;
 
 	// Your code here.
-    
+	// added on May 10th
+	
+	pret_addr = read_pretaddr();    
+	ebp = read_ebp();
+	addr_of_raddr = ebp + 4;
+	for(i = 0; i < 256; i++) {
+		str[i] = ' ';
+	}
+	str[246] = str[98] = str[18] = str[9] = '%';
+	str[247] = str[99] = str[19] = str[10] = 'n';
+	str[248] = '\0';
 
+	// use %edi to store the correct return address
+	// because %ebx won't be changed after calling a function
+	__asm __volatile("mov 4(%ebp), %ebx\n\t");
+
+	cprintf(str,
+		addr_of_raddr + 1,
+		addr_of_raddr + 2,
+		addr_of_raddr + 0,
+		addr_of_raddr + 3);
+	/* *((uint32_t *)addr_of_raddr) = 0xf010095e; */
+
+    //       added on May 11th
+    //       reserve a correct return address
+    //       using asembly code violently to change the stack
+    
+    __asm__ __volatile__("mov -8(%ebp), %eax\n\t");
+    __asm __volatile("mov %eax, -12(%ebp)\n\t");
+    __asm __volatile("mov -4(%ebp), %eax\n\t");
+    __asm __volatile("mov %eax, -8(%ebp)\n\t");
+    __asm __volatile("mov (%ebp), %eax\n\t");
+    __asm __volatile("mov %eax, -4(%ebp)\n\t");
+    __asm __volatile("mov 4(%ebp), %eax\n\t");
+    __asm __volatile("mov %eax, (%ebp)\n\t");
+    __asm __volatile("mov %ebx, 4(%ebp)\n\t");
+    __asm __volatile("sub $4, %ebp\n\t");
+    __asm __volatile("sub $4, %esp\n\t");
 
 }
 
@@ -104,6 +149,33 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	// Your code here.
 	overflow_me();
     	cprintf("Backtrace success\n");
+	uint32_t ebp, eip;
+        struct Eipdebuginfo info;
+        // function name traced
+        // 128 bytes shall be enough
+        char fn_name[128];
+        cprintf("Stack backtrace:\n");
+        for(ebp = read_ebp(); ebp; ebp = *((uint32_t *)ebp)) {
+                eip = *((uint32_t *)ebp + 1);
+                cprintf("eip %08x  ebp %08x  args %08x %08x %08x %08x %08x\n",
+                        eip,
+                        ebp,
+                        *((uint32_t *)ebp + 2),
+                        *((uint32_t *)ebp + 3),
+                        *((uint32_t *)ebp + 4),
+                        *((uint32_t *)ebp + 5),
+                        *((uint32_t *)ebp + 6));
+
+                if(debuginfo_eip((uintptr_t)eip,  &info) >= 0) {
+                        strcpy(fn_name, info.eip_fn_name);
+                        fn_name[info.eip_fn_namelen] = '\0';
+                        cprintf("\t%s:%d %s+%d\n",
+                                info.eip_file,
+                                info.eip_line,
+                                fn_name,
+                                eip - info.eip_fn_addr);
+                }
+        }
 	return 0;
 }
 
