@@ -122,7 +122,7 @@ start_overflow(void)
     //       added on May 11th
     //       reserve a correct return address
     //       using asembly code violently to change the stack
-    
+    /* 
     __asm__ __volatile__("mov -8(%ebp), %eax\n\t");
     __asm __volatile("mov %eax, -12(%ebp)\n\t");
     __asm __volatile("mov -4(%ebp), %eax\n\t");
@@ -130,7 +130,12 @@ start_overflow(void)
     __asm __volatile("mov (%ebp), %eax\n\t");
     __asm __volatile("mov %eax, -4(%ebp)\n\t");
     __asm __volatile("mov 4(%ebp), %eax\n\t");
-    __asm __volatile("mov %eax, (%ebp)\n\t");
+    __asm __volatile("mov %eax, (%ebp)\n\t");*/
+	*((uint32_t *)ebp - 4) = *((uint32_t *)ebp - 3);
+	*((uint32_t *)ebp - 3) = *((uint32_t *)ebp - 2);
+	*((uint32_t *)ebp - 2) = *((uint32_t *)ebp - 1);
+	*((uint32_t *)ebp - 1) = *((uint32_t *)ebp - 0);
+	*((uint32_t *)ebp - 0) = *((uint32_t *)ebp + 1);
     __asm __volatile("mov %ebx, 4(%ebp)\n\t");
     __asm __volatile("sub $4, %ebp\n\t");
     __asm __volatile("sub $4, %esp\n\t");
