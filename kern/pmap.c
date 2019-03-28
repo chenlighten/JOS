@@ -238,7 +238,7 @@ mem_init(void)
 	// Invoke page size extension !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	cr4 = rcr4();
 	cr4 |= CR4_PSE;
-	lcr4(cr4);	
+	lcr4(cr4);
 
 	lcr3(PADDR(kern_pgdir));
 
