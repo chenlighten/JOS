@@ -86,7 +86,10 @@ start_overflow(void)
     //       added on May 11th
     //       reserve a correct return address
     //       using asembly code violently to change the stack
-
+    /***********************************************************
+     * We don't need this code in latter labs,
+     * or the kernel won't work normally.
+     * *********************************************************
     char str[256] = {0};
     int nstr = 0;
     uint32_t pret_addr;
@@ -117,20 +120,19 @@ start_overflow(void)
 		addr_of_raddr + 2,
 		addr_of_raddr + 0,
 		addr_of_raddr + 3);
-	/* *((uint32_t *)addr_of_raddr) = 0xf010095e; */
+	*((uint32_t *)addr_of_raddr) = 0xf010095e; 
 
     //       added on May 11th
     //       reserve a correct return address
     //       using asembly code violently to change the stack
-    /* 
-    __asm__ __volatile__("mov -8(%ebp), %eax\n\t");
+    __asm __volatile("mov -8(%ebp), %eax\n\t");
     __asm __volatile("mov %eax, -12(%ebp)\n\t");
     __asm __volatile("mov -4(%ebp), %eax\n\t");
     __asm __volatile("mov %eax, -8(%ebp)\n\t");
     __asm __volatile("mov (%ebp), %eax\n\t");
     __asm __volatile("mov %eax, -4(%ebp)\n\t");
     __asm __volatile("mov 4(%ebp), %eax\n\t");
-    __asm __volatile("mov %eax, (%ebp)\n\t");*/
+    __asm __volatile("mov %eax, (%ebp)\n\t");
 	*((uint32_t *)ebp - 4) = *((uint32_t *)ebp - 3);
 	*((uint32_t *)ebp - 3) = *((uint32_t *)ebp - 2);
 	*((uint32_t *)ebp - 2) = *((uint32_t *)ebp - 1);
@@ -139,7 +141,8 @@ start_overflow(void)
     __asm __volatile("mov %ebx, 4(%ebp)\n\t");
     __asm __volatile("sub $4, %ebp\n\t");
     __asm __volatile("sub $4, %esp\n\t");
-
+    
+    ************************************************/
 }
 
 void
