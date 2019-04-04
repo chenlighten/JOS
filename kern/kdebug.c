@@ -142,6 +142,11 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	stab_binsearch(stabs, &lfile, &rfile, N_SO, addr);
 	if (lfile == 0)
 		return -1;
+	// get file name
+	// i don't know if it works
+	// added on May 10th
+	if (stabs[lfile].n_strx < stabstr_end - stabstr)
+                        info->eip_file = stabstr + stabs[lfile].n_strx;
 
 	// Search within that file's stabs for the function definition
 	// (N_FUN).
@@ -179,7 +184,14 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	//	Look at the STABS documentation and <inc/stab.h> to find
 	//	which one.
 	// Your code here.
-
+	// added on may 10th
+	stab_binsearch(stabs, &lline, &rline, N_SLINE, addr);
+	if(lline <= rline) {
+		info->eip_line = stabs[lline].n_desc;
+	} else {
+		return -1;
+	}
+	
 
 	// Search backwards from the line number for the relevant filename
 	// stab.
