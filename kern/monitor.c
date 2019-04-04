@@ -155,8 +155,6 @@ int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
-	overflow_me();
-    	cprintf("Backtrace success\n");
 	uint32_t ebp, eip;
         struct Eipdebuginfo info;
         // function name traced
