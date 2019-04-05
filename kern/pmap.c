@@ -102,7 +102,6 @@ boot_alloc(uint32_t n)
 	if (!nextfree) {
 		extern char end[];
 		nextfree = ROUNDUP((char *) end, PGSIZE);
-        cprintf("end: %x", end);
 	}
 
 	// Allocate a chunk large enough to hold 'n' bytes, then update
@@ -151,7 +150,6 @@ mem_init(void)
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
 	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);
-    cprintf("kern_pgdir:%x &kern_pgdir:%x", kern_pgdir, &kern_pgdir);
 	memset(kern_pgdir, 0, PGSIZE);
 
 	//////////////////////////////////////////////////////////////////////
