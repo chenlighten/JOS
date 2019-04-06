@@ -151,7 +151,6 @@ mem_init(void)
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
 	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);
-    cprintf("kern_pgdir:%x &kern_pgdir:%x\n", kern_pgdir, &kern_pgdir);
 	memset(kern_pgdir, 0, PGSIZE);
 
 	//////////////////////////////////////////////////////////////////////
@@ -179,6 +178,7 @@ mem_init(void)
 	// LAB 3: Your code here.
     // Added on April 5
     envs = (struct Env *)boot_alloc(NENV*sizeof(struct Env));
+	memset(envs, 0, NENV*sizeof(struct Env));
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -236,7 +236,7 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
-	boot_map_region_large(kern_pgdir, KERNBASE, 0x100000000 - KERNBASE, 0, PTE_W|PTE_P);
+	boot_map_region(kern_pgdir, KERNBASE, 0x100000000 - KERNBASE, 0, PTE_W|PTE_P);
 
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
@@ -253,9 +253,9 @@ mem_init(void)
 	// Added on March 17th
 	// Extremely important !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	// Invoke page size extension !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	cr4 = rcr4();
-	cr4 |= CR4_PSE;
-	lcr4(cr4);
+	// cr4 = rcr4();
+	// cr4 |= CR4_PSE;
+	// lcr4(cr4);
 
 	lcr3(PADDR(kern_pgdir));
 
