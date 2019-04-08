@@ -21,6 +21,8 @@ sys_cputs(const char *s, size_t len)
 	// Destroy the environment if not.
 
 	// LAB 3: Your code here.
+    // Added on Apirl 8
+    user_mem_assert(curenv, (const void *)s, len, PTE_U);
 
 	// Print the string supplied by the user.
 	cprintf("%.*s", len, s);
@@ -77,7 +79,28 @@ static int
 sys_sbrk(uint32_t inc)
 {
     // LAB3: your code here.
-    return 0;
+    // Added on April 8.
+    void *begin = (void *)ROUNDDOWN(curenv->env_pbrk, PGSIZE);
+    void *end = (void *)ROUNDUP(curenv->env_pbrk + inc, PGSIZE);
+    pte_t *pte_ptr;
+    struct PageInfo *pp;
+
+    while (begin < end) {
+        // If virtual address begin is not mapped
+        if(!page_lookup(curenv->env_pgdir, begin, &pte_ptr)) {
+            // Allocate a physical page
+            pp = page_alloc(ALLOC_ZERO);
+            if(!pp) {
+                panic("Page alloc failed at sys_sbrk().");
+            }
+            pp->pp_ref++;
+            // Permission should be writable
+            page_insert(curenv->env_pgdir, pp, begin, PTE_U | PTE_W);
+        }
+        begin += PGSIZE;
+    }
+    
+    return (int)(curenv->env_pbrk += inc);
 }
 
 // Dispatches to the correct kernel function, passing the arguments.
@@ -88,11 +111,30 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	// Return any appropriate return value.
 	// LAB 3: Your code here.
 
-	panic("syscall not implemented");
 
 	switch (syscallno) {
-	default:
-		return -E_INVAL;
+        case SYS_cputs:
+            sys_cputs((const char *)a1, (size_t)a2);
+            // Return the length of the output string.
+            return (int32_t)a2;
+
+        case SYS_cgetc:
+            return (int32_t)sys_cgetc();
+
+        case SYS_getenvid:
+            return (int32_t)sys_getenvid();
+
+        case SYS_env_destroy:
+            return (int32_t)sys_env_destroy(sys_getenvid());
+
+        case SYS_map_kernel_page:
+            return (int32_t)sys_map_kernel_page((void *)a1, (void *)a2);
+
+        case SYS_sbrk:
+            return (int32_t)sys_sbrk((uint32_t)a1);
+
+	    default:
+		    return -E_INVAL;
 	}
 }
 

@@ -58,6 +58,22 @@ static const char *trapname(int trapno)
 	return "(unknown trap)";
 }
 
+// Added on April 7
+// Load idt position i with address p.
+void 
+load_idt(size_t i, bool is_trap, void *p) {
+    // idt[i].gd_off_15_0 = (unsigned)p & 0x00FF;
+    // idt[i].gd_off_31_16 = (unsigned)p >> 16;
+    // idt[i].gd_sel = GD_KT;
+    
+    // User should have the permission to use breakpoint and system call.
+    if (i == T_BRKPT || i == T_SYSCALL) {
+        // Spent a century to find this micro.
+        SETGATE(idt[i], is_trap, GD_KT, (uint32_t)p, 3);
+        return;
+    }
+    SETGATE(idt[i], is_trap, GD_KT, (uint32_t)p, 0);
+}
 
 void
 trap_init(void)
@@ -65,6 +81,50 @@ trap_init(void)
 	extern struct Segdesc gdt[];
 
 	// LAB 3: Your code here.
+    // Added on April 7
+
+    void DIVIDE();
+    void DEBUG();
+    void NMI();
+    void BRKPT();
+    void OFLOW();
+    void BOUND();
+    void ILLOP();
+    void DEVICE();
+    void DBLFLT();
+    void TSS();
+    void SEGNP();
+    void STACK();
+    void GPFLT();
+    void PGFLT();
+    void FPERR();
+    void ALIGN();
+    void MCHK();
+    void SIMDERR();
+    void SYSCALL();
+
+    load_idt(0, 1, DIVIDE);
+    load_idt(1, 1, DEBUG);
+    load_idt(2, 0, NMI);
+    load_idt(3, 1, BRKPT);
+    load_idt(4, 1, OFLOW);
+    load_idt(5, 1, BOUND);
+    load_idt(6, 0, ILLOP);
+    load_idt(7, 0, DEVICE);
+    load_idt(8, 0, DBLFLT);
+    // load_idt(9, RESERVED);
+    load_idt(10, 0, TSS);
+    load_idt(11, 0, SEGNP);
+    load_idt(12, 1, STACK);
+    load_idt(13, 0, GPFLT);
+    load_idt(14, 1, PGFLT);
+    // load_idt(15, RESERVED);
+    load_idt(16, 0, FPERR);
+    load_idt(17, 1, ALIGN);
+    load_idt(18, 1, MCHK);
+    load_idt(19, 0, SEGNP);
+    // system call
+    load_idt(0x30, 1, SYSCALL);
 
 	// Per-CPU setup 
 	trap_init_percpu();
@@ -144,6 +204,35 @@ trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
+    // Added on April 7
+    
+    // for page fault
+    if (tf->tf_trapno == T_PGFLT) {
+        page_fault_handler(tf);
+    }
+
+    // for breakpoint
+    if (tf->tf_trapno == T_BRKPT) {
+        monitor(tf);
+    }
+
+    // for system call
+    if (tf->tf_trapno == T_SYSCALL) { 
+       tf->tf_regs.reg_eax = syscall(tf->tf_regs.reg_eax,
+               tf->tf_regs.reg_edx,
+               tf->tf_regs.reg_ecx,
+               tf->tf_regs.reg_ebx,
+               tf->tf_regs.reg_edi,
+               tf->tf_regs.reg_esi); 
+       // Without this, user process will be destroyed.
+       return;
+    }
+
+    // for kernel page fault
+    if (tf->tf_trapno == T_PGFLT && (tf->tf_cs & GD_KT)) {
+        panic("Page fault happens in kernel mode!");
+    }
+
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);

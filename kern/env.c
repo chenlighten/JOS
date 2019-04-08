@@ -117,11 +117,11 @@ env_init(void)
 	// Set up envs array
 	// LAB 3: Your code here.
     // Added on April 5
-    cprintf("I am env_init()!\n");
     for (size_t i = 0; i < NENV; i++) {
         envs[i].env_link = envs + (i + 1);
         envs[i].env_id = 0;
         envs[i].env_status = ENV_FREE;
+        envs[i].env_pbrk = 0;
     }
     env_free_list = envs;
     envs[NENV - 1].env_link = NULL;
@@ -164,7 +164,6 @@ env_init_percpu(void)
 static int
 env_setup_vm(struct Env *e)
 {
-    cprintf("I am env_setup_VM()!\n");
 	int i;
 	struct PageInfo *p = NULL;
 
@@ -218,14 +217,12 @@ env_setup_vm(struct Env *e)
 int
 env_alloc(struct Env **newenv_store, envid_t parent_id)
 {
-    cprintf("I am env_alloc\n");
 	int32_t generation;
 	int r;
 	struct Env *e;
 
 	if (!(e = env_free_list))
 		return -E_NO_FREE_ENV;
-    cprintf("The first env_alloc is %d\n", e - envs);
 
 	// Allocate and set up the page directory for this environment.
 	if ((r = env_setup_vm(e)) < 0)
@@ -282,7 +279,6 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 static void
 region_alloc(struct Env *e, void *va, size_t len)
 {
-    cprintf("I am region_alloc()!\n");
 	// LAB 3: Your code here.
 	// (But only if you need it for load_icode.)
 	//
@@ -331,7 +327,6 @@ region_alloc(struct Env *e, void *va, size_t len)
 static void
 load_icode(struct Env *e, uint8_t *binary)
 {
-    cprintf("I am load_icode\n");
 	// Hints:
 	//  Load each program segment into virtual memory
 	//  at the address specified in the ELF segment header.
@@ -380,11 +375,15 @@ load_icode(struct Env *e, uint8_t *binary)
 	lcr3(PADDR(e->env_pgdir));
 	for (; ph < eph; ph++) {
         if (ph->p_type == ELF_PROG_LOAD && ph->p_memsz >= ph->p_filesz) {
-            cprintf("this p_va is %x, and source is at %x, and size is %x\n", ph->p_va, binary + ph->p_offset, ph->p_filesz);
             // User addresses of the new environment is not mapped yet, so allocate physical address for them.
             region_alloc(e, (void *)ph->p_va, ph->p_memsz);
             memcpy((void*)ph->p_va, (void *)(binary) + ph->p_offset, ph->p_filesz);
             memset((void *)(ph->p_va + ph->p_filesz), 0, ph->p_memsz - ph->p_filesz); 
+
+            // update the program break of the process 
+            if (ph->p_va + ph->p_memsz > (uint32_t)e->env_pbrk) {
+                e->env_pbrk = (void *)(ph->p_va + ph->p_memsz);
+            }
         }
     }
     // Change the virtual address space back.
@@ -411,9 +410,8 @@ load_icode(struct Env *e, uint8_t *binary)
 void
 env_create(uint8_t *binary, enum EnvType type)
 {
-    cprintf("I am env_create()!\n");
 	// LAB 3: Your code here.
-    // Xsc added on April 6.
+    // added on April 6.
     struct Env *newenv;
     int flag = env_alloc(&newenv, 0);
     if (flag == -E_NO_FREE_ENV) {
@@ -527,7 +525,6 @@ env_pop_tf(struct Trapframe *tf)
 void
 env_run(struct Env *e)
 {
-    cprintf("I am env_run()!\n");
 	// Step 1: If this is a context switch (a new environment is running):
 	//	   1. Set the current environment (if any) back to
 	//	      ENV_RUNNABLE if it is ENV_RUNNING (think about
@@ -546,7 +543,7 @@ env_run(struct Env *e)
 	//	e->env_tf to sensible values.
 
 	// LAB 3: Your code here.
-    // Xsc added on April 6
+    // added on April 6
     // Just do as the guidence above says.
     if (curenv && curenv->env_status == ENV_RUNNING) {
         curenv->env_status = ENV_RUNNABLE;
@@ -556,7 +553,6 @@ env_run(struct Env *e)
     curenv->env_runs++;
     lcr3(PADDR(curenv->env_pgdir));
 
-    cprintf("Just before context switch, new eip is %x\n", curenv->env_tf.tf_eip);
     env_pop_tf(&(curenv->env_tf));
 }
 

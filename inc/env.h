@@ -54,6 +54,9 @@ struct Env {
 
 	// Address space
 	pde_t *env_pgdir;		// Kernel virtual address of page dir
+
+    // Added on April 8
+    void *env_pbrk;         // Program break, the top of the process's data segment
 };
 
 #endif // !JOS_INC_ENV_H

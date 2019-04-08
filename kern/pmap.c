@@ -678,7 +678,41 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
+    // Added on April 8
+   
+    if ((uint32_t)va >= ULIM) {
+        user_mem_check_addr = (uintptr_t)va;
+        return -E_FAULT;
+    }
 
+    if ((uint32_t)(va + len) >= ULIM) {
+        user_mem_check_addr = (uintptr_t)ULIM;
+        return -E_FAULT;
+    }
+
+    void *end = (void *)va + len;
+    pte_t *pte_ptr;
+    // If not first loop, return the fitst address of the page that holds va.
+    // It's a little dirty but I am too lazy to re-write it.
+    bool first_loop = true;
+    while (va < end) {
+        // Get the page tabel entry!
+        // If the page is not mapped, return!
+        if (!(page_lookup(env->env_pgdir, (void *)va, &pte_ptr))) {
+            user_mem_check_addr = first_loop ? (uintptr_t)va : (uintptr_t)ROUNDDOWN(va, PGSIZE);
+            return -E_FAULT;
+        }
+
+        // Check the permission! (a little dirty)
+        if (((*pte_ptr) & (perm | PTE_P)) != (perm | PTE_P)) {
+            user_mem_check_addr = first_loop ? (uintptr_t)va : (uintptr_t)ROUNDDOWN(va, PGSIZE);
+            return -E_FAULT;
+        }
+
+        va += PGSIZE;
+        first_loop = false;
+    }
+    
 	return 0;
 }
 
