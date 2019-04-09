@@ -233,7 +233,6 @@ trap_dispatch(struct Trapframe *tf)
         panic("Page fault happens in kernel mode!");
     }
 
-
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
 	if (tf->tf_cs == GD_KT)
