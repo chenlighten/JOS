@@ -157,32 +157,32 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
 	uint32_t ebp, eip;
-        struct Eipdebuginfo info;
-        // function name traced
-        // 128 bytes shall be enough
-        char fn_name[128];
-        cprintf("Stack backtrace:\n");
-        for(ebp = read_ebp(); ebp; ebp = *((uint32_t *)ebp)) {
-                eip = *((uint32_t *)ebp + 1);
-                cprintf("eip %08x  ebp %08x  args %08x %08x %08x %08x %08x\n",
-                        eip,
-                        ebp,
-                        *((uint32_t *)ebp + 2),
-                        *((uint32_t *)ebp + 3),
-                        *((uint32_t *)ebp + 4),
-                        *((uint32_t *)ebp + 5),
-                        *((uint32_t *)ebp + 6));
+    struct Eipdebuginfo info;
+    // function name traced
+    // 128 bytes shall be enough
+    char fn_name[128];
+    cprintf("Stack backtrace:\n");
+    for(ebp = read_ebp(); ebp; ebp = *((uint32_t *)ebp)) {
+        eip = *((uint32_t *)ebp + 1);
+        cprintf("eip %08x  ebp %08x  args %08x %08x %08x %08x %08x\n",
+            eip,
+            ebp,
+            *((uint32_t *)ebp + 2),
+            *((uint32_t *)ebp + 3),
+            *((uint32_t *)ebp + 4),
+            *((uint32_t *)ebp + 5),
+            *((uint32_t *)ebp + 6));
 
-                if(debuginfo_eip((uintptr_t)eip,  &info) >= 0) {
-                        strcpy(fn_name, info.eip_fn_name);
-                        fn_name[info.eip_fn_namelen] = '\0';
-                        cprintf("\t%s:%d %s+%d\n",
-                                info.eip_file,
-                                info.eip_line,
-                                fn_name,
-                                eip - info.eip_fn_addr);
-                }
+        if(debuginfo_eip((uintptr_t)eip,  &info) >= 0) {
+                strcpy(fn_name, info.eip_fn_name);
+                fn_name[info.eip_fn_namelen] = '\0';
+                cprintf("\t%s:%d %s+%d\n",
+                    info.eip_file,
+                    info.eip_line,
+                    fn_name,
+                    eip - info.eip_fn_addr);
         }
+    }
 	return 0;
 }
 
