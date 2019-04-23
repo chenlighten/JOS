@@ -38,6 +38,31 @@ static void
 printnum(void (*putch)(int, void*), void *putdat,
 	 unsigned long long num, unsigned base, int width, int padc)
 {
+	//if the number should be left adjusted
+	if(padc == '-') {
+		unsigned long long tnum = num;
+		unsigned long long power = 1;
+		while(tnum) {
+			power *= base;
+			tnum /= base;
+			--width;
+		}
+
+		if(!num) {
+			putch('0', putdat);
+			--width;
+		}
+		while(num) {
+			power /= base;
+			putch("0123456789abcdef"[num / power], putdat);
+			num %= power;
+		}
+		while(width--)
+			putch(' ', putdat);
+
+		return;
+	}
+
 	// first recursively print all preceding (more significant) digits
 	if (num >= base) {
 		printnum(putch, putdat, num / base, base, width - 1, padc);
@@ -89,6 +114,10 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 	unsigned long long num;
 	int base, lflag, width, precision, altflag;
 	char padc;
+	// to hold the address of a char if confronted with a %n
+	char *pchar;
+	// to determine if a sign is needed
+	int need_sign;
 
 	while (1) {
 		while ((ch = *(unsigned char *) fmt++) != '%') {
@@ -103,6 +132,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		precision = -1;
 		lflag = 0;
 		altflag = 0;
+		need_sign = 0;
 	reswitch:
 		switch (ch = *(unsigned char *) fmt++) {
 
@@ -133,6 +163,11 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 					break;
 			}
 			goto process_precision;
+		
+		// added on May 10th for ex9
+		case '+':
+			need_sign = 1;
+			goto reswitch;
 
 		case '*':
 			precision = va_arg(ap, int);
@@ -189,12 +224,40 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 				putch(' ', putdat);
 			break;
 
+		// put the number of characters printed so far to the address
+		// specified by the coressbonding parameter
+		// added for ex10, lab1 on May 9th
+		// modified on May 10th
+		case 'n':
+		  	pchar = va_arg(ap, char*);
+			if(!pchar) {
+				vprintfmt(putch,
+					      putdat,
+					      "error! writing through NULL pointer! (%%n argument)\n",
+					      ap);
+			} else if(*((int *)putdat) < 128) {
+				*pchar = *((int *)putdat);
+			} else {
+				*pchar = *((int *)putdat) % 256;
+				vprintfmt(putch,
+                          putdat,
+                          "warning! The value %%n argument pointed to has been overflowed!\n",
+                          ap);
+			}
+			break;
+
 		// (signed) decimal
 		case 'd':
 			num = getint(&ap, lflag);
 			if ((long long) num < 0) {
 				putch('-', putdat);
 				num = -(long long) num;
+			}
+			// added on May 9th
+			// modefied on May 10th
+			// required by ex9
+			else if(need_sign) {
+				putch('+', putdat);
 			}
 			base = 10;
 			goto number;
@@ -208,10 +271,16 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 		// (unsigned) octal
 		case 'o':
 			// Replace this with your code.
-			putch('X', putdat);
-			putch('X', putdat);
-			putch('X', putdat);
-			break;
+			// putch('X', putdat);
+			// putch('X', putdat);
+			// putch('X', putdat);
+			// break;
+			
+			// added on May 9th
+                        putch('0', putdat);
+                        num = getuint(&ap, lflag);
+                        base = 8;
+                        goto number;
 
 		// pointer
 		case 'p':

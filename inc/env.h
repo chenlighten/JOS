@@ -65,6 +65,10 @@ struct Env {
 	uint32_t env_ipc_value;		// Data value sent to us
 	envid_t env_ipc_from;		// envid of the sender
 	int env_ipc_perm;		// Perm of page mapping received
+
+    // Added on April 8
+    // Lab3 program break
+    void *env_pbrk;         // Program break, the top of the process's data segment
 };
 
 #endif // !JOS_INC_ENV_H

@@ -1,0 +1,8 @@
+1.Mainly to store the trap number onto the stack, without which the kernel can't tell what kink of interrupt happens.
+2.I should set the discriptor privilege level of the page fault IDT entry to be 3 when initialize the IDT.
+  Otherwise, when you try to invoke int $14, which requires privilege 0,  in user program in ring 3,
+  the hardware compares your privilege and the privilege required and finds that it doesn't match,
+  then it will invoke a general protection fault rather than the page fault as you desire.
+3.I need to set the discriptor privilege level of the breakpoint IDT entry to be 3. The reason is the same as that in question 2.
+4.To prevent the user program from invoking some interrupts that may reveal important data or change the status of the kernel,
+  thus protecting the kernel from being attacked via interrupts.
