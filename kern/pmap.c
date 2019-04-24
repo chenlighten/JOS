@@ -720,7 +720,22 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// Hint: The staff solution uses boot_map_region.
 	//
 	// Your code here:
-	panic("mmio_map_region not implemented");
+    // 19-04-23
+    
+    // Don't simply use ROUNDUP(size, PGSIZE).
+    size = ROUNDUP(pa + size, PGSIZE) - ROUNDDOWN(pa, PGSIZE);
+    // Check if this mapping overflows.
+    if (base + size >= MMIOLIM) {
+        panic("mmio_map_region overflows.");
+    }
+    pa = ROUNDDOWN(pa, PGSIZE);
+    boot_map_region(kern_pgdir, base, size, pa, PTE_PCD|PTE_PWT|PTE_W);
+    // Return the base of reserved region.
+    void *ret = (void *)base;
+    // base is always aligned to PGSIZE.
+    base += size;
+	// panic("mmio_map_region not implemented");
+    return ret;
 }
 
 static uintptr_t user_mem_check_addr;
