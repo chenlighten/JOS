@@ -299,7 +299,17 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
-
+    // 19-04-24
+    uintptr_t kstacktop_i; 
+    // stack of cpu0 should also be mapped
+    // we have mapped it to physical memory that bootstack reffers to earlier
+    // but this time we should also map it to physical memory that percpu_kstacks[0] reffers to
+    for (size_t i = 0; i < NCPU; i++) {
+        kstacktop_i = KSTACKTOP - i * (KSTKSIZE + KSTKGAP);
+        // at this time, all vitual address above KENBASE is mapped
+        // so we can use PADDR(percpu_kstacks[i]) directly
+        boot_map_region(kern_pgdir, kstacktop_i - KSTKSIZE, KSTKSIZE, PADDR(percpu_kstacks[i]), PTE_W);
+    }
 }
 
 // --------------------------------------------------------------
@@ -349,6 +359,13 @@ page_init(void)
 
 		// If the page is free
 		if((PGSIZE <= pa && pa < npages_basemem*PGSIZE) || pa >= firstfreepa) {
+            // Modified 19-04-24:
+            // Don't add page at MPENTRY_PADDR to the free list
+            if (pa == MPENTRY_PADDR) {
+                pages[i].pp_ref = 1;
+                pages[i].pp_link = NULL;
+                continue;
+            }
 			pages[i].pp_ref = 0;
 			// Remember that page_free_list has been automatically
 			// initlized to NULL, so we needn't pay more attention
@@ -357,11 +374,11 @@ page_init(void)
 			page_free_list = &pages[i];
 		}
 
-                // If the page is not free or can not be allocated
+        // If the page is not free or can not be allocated
 		else if(pa == 0 || (IOPHYSMEM <= pa && pa < EXTPHYSMEM) || pa < firstfreepa) {
-                        pages[i].pp_ref = 1;
-                        pages[i].pp_link = NULL;
-                }
+            pages[i].pp_ref = 1;
+            pages[i].pp_link = NULL;
+        }
 	}
 }
 
