@@ -134,7 +134,7 @@ trap_init(void)
     load_idt(0x30, 1, SYSCALL);
 
 	// Per-CPU setup 
-	trap_init_percpu();
+    trap_init_percpu();
 }
 
 // Initialize and load the per-CPU TSS and IDT
@@ -165,6 +165,9 @@ trap_init_percpu(void)
 	// user space on that CPU.
 	//
 	// LAB 4: Your code here:
+    // 19-04-28
+    // As it guides, replace all ts with thiscpu->cpu_ts
+    // and add use cpunum() to set TSS descriptor
 
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
@@ -173,13 +176,15 @@ trap_init_percpu(void)
 	thiscpu->cpu_ts.ts_iomb = sizeof(struct Taskstate);
 
 	// Initialize the TSS slot of the gdt.
-	gdt[GD_TSS0 >> 3] = SEG16(STS_T32A, (uint32_t) (&ts),
+	gdt[(GD_TSS0 >> 3) + cpunum()] = SEG16(STS_T32A, (uint32_t) (&(thiscpu->cpu_ts)),
 					sizeof(struct Taskstate) - 1, 0);
-	gdt[GD_TSS0 >> 3].sd_s = 0;
+	gdt[(GD_TSS0 >> 3) + cpunum()].sd_s = 0;
 
 	// Load the TSS selector (like other segment selectors, the
 	// bottom three bits are special; we leave them 0)
-	ltr(GD_TSS0);
+    // 19-05-01
+    // the 4th bit is used to identify CPUs
+	ltr(GD_TSS0 + 8*cpunum());
 
 	// Load the IDT
 	lidt(&idt_pd);
@@ -314,6 +319,7 @@ trap(struct Trapframe *tf)
 		// Acquire the big kernel lock before doing any
 		// serious kernel work.
 		// LAB 4: Your code here.
+        lock_kernel();
 		assert(curenv);
 
 		// Garbage collect if current enviroment is a zombie

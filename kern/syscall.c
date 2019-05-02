@@ -334,6 +334,11 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
         case SYS_sbrk:
             return (int32_t)sys_sbrk((uint32_t)a1);
 
+        // 19-05-02
+        case SYS_yield:
+            sys_yield();
+            return 0;
+
 	    default:
 		    return -E_INVAL;
 	}
