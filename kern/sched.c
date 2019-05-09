@@ -30,12 +30,21 @@ sched_yield(void)
 
 	// LAB 4: Your code here.
     // 19-05-02
-    // curenv is zero at the very beginning.
-    for (idle = (curenv ? curenv + 1 : envs);
-            !(idle->env_status == ENV_RUNNABLE || idle == curenv);
-            idle = envs + ((idle - envs) + 1) % NENV);
+    // curenv is NULL at the very beginning
+    // or when an environment kills itself.
+    if (curenv)
+        for (idle = curenv + 1;
+                !(idle->env_status == ENV_RUNNABLE || idle == curenv);
+                idle = envs + ((idle - envs) + 1) % NENV);
+    else
+        for (idle = envs;
+                !(idle->env_status == ENV_RUNNABLE || idle == envs + NENV);
+                idle++);
 
-    if (idle->env_status == ENV_RUNNABLE || (idle == curenv && idle->env_status == ENV_RUNNING)) {
+    if (idle < envs + NENV && 
+            (idle->env_status == ENV_RUNNABLE || 
+             (idle == curenv &&
+              idle->env_status == ENV_RUNNING))) {
         // We should call env_run even if the env doesn't change
         // otherwise the kernel lock will not be released.
         env_run(idle);

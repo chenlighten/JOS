@@ -265,10 +265,6 @@ trap_dispatch(struct Trapframe *tf)
        return;
     }
 
-    // for kernel page fault
-    if (tf->tf_trapno == T_PGFLT && (tf->tf_cs & GD_KT)) {
-        panic("Page fault happens in kernel mode!");
-    }
 
 	// Handle spurious interrupts
 	// The hardware sometimes raises these because of noise on the
@@ -365,6 +361,10 @@ page_fault_handler(struct Trapframe *tf)
 	// Handle kernel-mode page faults.
 
 	// LAB 3: Your code here.
+    // for kernel page fault
+    if ((tf->tf_cs & 3) != 3) {
+        panic("Page fault happens in kernel mode!");
+    }
 
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
@@ -399,6 +399,42 @@ page_fault_handler(struct Trapframe *tf)
 	//   (the 'tf' variable points at 'curenv->env_tf').
 
 	// LAB 4: Your code here.
+    // 19-05-05
+
+    // 19-05-08
+    // Have modified env_destroy and env_init to support this check.
+    if (curenv->env_pgfault_upcall != NULL) {
+        // First check if the user program can access the address.
+        // user_mem_assert(curenv, (const void *)fault_va, 1, 0);
+
+        struct UTrapframe utf;
+        // Set members of utf.
+        utf.utf_fault_va = fault_va;
+        utf.utf_err = tf->tf_err;
+        utf.utf_regs = tf->tf_regs;
+        utf.utf_eip = tf->tf_eip;
+        utf.utf_eflags = tf->tf_eflags;
+        utf.utf_esp = tf->tf_esp;
+
+        // Is it a recursive trap?
+        // Determine where to store utf.
+        if (UXSTACKTOP - PGSIZE <= tf->tf_esp && tf->tf_esp < UXSTACKTOP) {
+            // Remember to leave a word to store return address.
+            tf->tf_esp = (uint32_t)tf->tf_esp - sizeof(struct UTrapframe) - 4;    
+        }
+        else {
+            tf->tf_esp = UXSTACKTOP - sizeof(struct UTrapframe);
+        }
+
+        // Store utf onto the stack
+        // as if we pass it as a parameter.
+        *(struct UTrapframe *)tf->tf_esp = utf; 
+
+        // Change tf_eip and use env_run()
+        // so it looks like we have jumped to _pgfault_upcall.
+        tf->tf_eip = (uintptr_t)curenv->env_pgfault_upcall;
+        env_run(curenv);
+    }
 
 	// Destroy the environment that caused the fault.
 	cprintf("[%08x] user fault va %08x ip %08x\n",

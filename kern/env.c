@@ -125,6 +125,8 @@ env_init(void)
         envs[i].env_id = 0;
         envs[i].env_status = ENV_FREE;
         envs[i].env_pbrk = 0;
+        // Modified 19-05-08:
+        envs[i].env_pgfault_upcall = NULL;
     }
     env_free_list = envs;
     envs[NENV - 1].env_link = NULL;
@@ -199,7 +201,7 @@ env_setup_vm(struct Env *e)
     // as the kernel environment,
     // let it share the same physical address of the kernel environment.
     // Also we have not mapped address below UTOP,
-    // so we can copy entire kernel page directory.
+    // so we can copy entire kernel page directory. 
     memcpy(e->env_pgdir, kern_pgdir, PGSIZE);
 
 	// UVPT maps the env's own page table read-only.
@@ -511,6 +513,9 @@ env_destroy(struct Env *e)
 	}
 
 	env_free(e);
+    // Modified 19-05-08:
+    // set env_pgfault_upcall to NULL.
+    e->env_pgfault_upcall = NULL;
 
 	if (curenv == e) {
 		curenv = NULL;
