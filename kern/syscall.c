@@ -278,6 +278,7 @@ sys_page_map(envid_t srcenvid, void *srcva,
             (uint32_t)dstva >= UTOP || (uint32_t)dstva % PGSIZE != 0) {
         return -E_INVAL;
     }
+    // Wrote it 05-03 and a bug here caused a disaster 05-09.
     if (((perm & (PTE_U|PTE_P)) != (PTE_U|PTE_P) ||
             (perm & ~((int)PTE_U|PTE_P|PTE_AVAIL|PTE_W))) != 0) {
         return -E_INVAL;
@@ -367,7 +368,54 @@ static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_try_send not implemented");
+    // 19-05-11
+    struct Env *env;
+    pte_t *pte_ptr;
+    struct PageInfo *pp;
+
+    if (envid2env(envid, &env, 0) < 0) {
+        return -E_BAD_ENV;
+    }
+    if (env->env_ipc_recving == false) {
+        return -E_IPC_NOT_RECV;
+    }
+
+    if ((uint32_t)srcva < UTOP) {
+        env->env_ipc_perm = 0;
+
+        if ((uint32_t)srcva % PGSIZE != 0) {
+            return -E_INVAL;
+        }
+        if ((perm & (PTE_U|PTE_P)) != (PTE_U|PTE_P) ||
+                (perm & ~(PTE_U|PTE_P|PTE_AVAIL|PTE_W)) != 0) {
+            return -E_INVAL;
+        }
+        // *** Can not use sys_page_map(), which checks permissions! ***
+        // Use page_lookup() and page_insert() instead.
+        if (!(pp = page_lookup(curenv->env_pgdir, srcva, &pte_ptr))) {
+            return -E_INVAL;
+        }
+        if ((perm & PTE_W) && !(*pte_ptr & PTE_W)) {
+            return -E_INVAL;
+        }
+        if (page_insert(env->env_pgdir, pp, env->env_ipc_dstva, perm) < 0) {
+            // Not correct technically, but...
+            return -E_NO_MEM;
+        }
+    }
+
+    env->env_ipc_recving = false;
+    env->env_ipc_from = curenv->env_id;
+    env->env_ipc_value = value;
+    env->env_ipc_perm = (uint32_t)srcva < UTOP ? perm : 0;
+
+    env->env_status = ENV_RUNNABLE;
+    // Don't know if it's necessary...add it in case.
+    // Make it as if another environment returns 0.
+    env->env_tf.tf_regs.reg_eax = 0;
+
+    return 0;
+	// panic("sys_ipc_try_send not implemented");
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -385,9 +433,150 @@ static int
 sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_recv not implemented");
-	return 0;
+    // 19-05-11
+    if ((uint32_t)dstva < UTOP) {
+        if ((uint32_t)dstva % PGSIZE != 0) {
+            return -E_INVAL;
+        }
+        curenv->env_ipc_dstva = dstva;
+    }
+    curenv->env_ipc_recving = true;
+    curenv->env_status = ENV_NOT_RUNNABLE;
+    sched_yield();
+    return 0;
+	// panic("sys_ipc_recv not implemented");
 }
+
+
+
+
+
+
+
+
+
+// static int
+
+// sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
+
+// {
+
+// 	// LAB 4: Your code here.
+
+// 	// cprintf("sys_ipc_try_send envid: %x, value: %x, srcva: %x, perm: %x\n", envid, value, srcva, perm);
+
+// 	struct Env *e;
+
+// 	int ret = envid2env(envid, &e, 0);
+
+// 	if (ret) return ret;//bad env
+
+// 	if (!e->env_ipc_recving) return -E_IPC_NOT_RECV;
+
+// 	if (srcva < (void*)UTOP) {
+
+// 		pte_t *pte;
+
+// 		struct PageInfo *pg = page_lookup(curenv->env_pgdir, srcva, &pte);
+
+// 		if (!pg) return -E_INVAL;
+
+// 		if ((*pte & perm & 7) != (perm & 7)) return -E_INVAL;
+
+// 		if ((perm & PTE_W) && !(*pte & PTE_W)) return -E_INVAL;
+
+// 		if (srcva != ROUNDDOWN(srcva, PGSIZE)) return -E_INVAL;
+
+// 		if (e->env_ipc_dstva < (void*)UTOP) {
+
+// 			ret = page_insert(e->env_pgdir, pg, e->env_ipc_dstva, perm);
+
+// 			if (ret) return ret;
+
+// 			e->env_ipc_perm = perm;
+
+// 		}
+
+// 	}
+
+// 	e->env_ipc_recving = 0;
+
+// 	e->env_ipc_from = curenv->env_id;
+
+// 	e->env_ipc_value = value; 
+
+// 	e->env_status = ENV_RUNNABLE;
+
+// 	e->env_tf.tf_regs.reg_eax = 0;
+
+// 	return 0;
+
+// 	panic("sys_ipc_try_send not implemented");
+
+// }
+
+
+
+// // Block until a value is ready.  Record that you want to receive
+
+// // using the env_ipc_recving and env_ipc_dstva fields of struct Env,
+
+// // mark yourself not runnable, and then give up the CPU.
+
+// //
+
+// // If 'dstva' is < UTOP, then you are willing to receive a page of data.
+
+// // 'dstva' is the virtual address at which the sent page should be mapped.
+
+// //
+
+// // This function only returns on error, but the system call will eventually
+
+// // return 0 on success.
+
+// // Return < 0 on error.  Errors are:
+
+// //	-E_INVAL if dstva < UTOP but dstva is not page-aligned.
+
+// static int
+
+// sys_ipc_recv(void *dstva)
+
+// {
+
+// 	// LAB 4: Your code here.
+
+// 	// cprintf("sys_ipc_recv dstva: %x\n", dstva);
+
+// 	if (dstva < (void*)UTOP) 
+
+// 		if (dstva != ROUNDDOWN(dstva, PGSIZE)) 
+
+// 			return -E_INVAL;
+
+// 	curenv->env_ipc_recving = 1;
+
+// 	curenv->env_status = ENV_NOT_RUNNABLE;
+
+// 	curenv->env_ipc_dstva = dstva;
+
+// 	sys_yield();
+
+// 	return 0;
+
+// }
+
+
+
+
+
+
+
+
+
+
+
 
 static int
 sys_map_kernel_page(void* kpage, void* va)
@@ -449,8 +638,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
         case SYS_getenvid:
             return (int32_t)sys_getenvid();
 
+        // Modified 19-05-10: Buggy before.
         case SYS_env_destroy:
-            return (int32_t)sys_env_destroy(sys_getenvid());
+            return (int32_t)sys_env_destroy((envid_t)a1);
 
         case SYS_map_kernel_page:
             return (int32_t)sys_map_kernel_page((void *)a1, (void *)a2);
@@ -483,6 +673,12 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 
         case SYS_env_set_pgfault_upcall:
             return sys_env_set_pgfault_upcall((envid_t)a1, (void *)a2);
+
+        case SYS_ipc_try_send:
+            return sys_ipc_try_send((envid_t)a1, (uint32_t)a2, (void *)a3, (unsigned int)a4);
+
+        case SYS_ipc_recv:
+            return sys_ipc_recv((void *)a1);
 
 	    default:
 		    return -E_INVAL;

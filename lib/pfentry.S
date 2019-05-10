@@ -66,7 +66,10 @@ _pgfault_upcall:
 	//
 	// LAB 4: Your code here.
     // 19-05-08
+
     // Store the return value onto the trap time stack.
+	// Constants used below are caculated from the struct UTrapFrame.
+
     // get return address
     movl 40(%esp), %eax
     // change the trap time eip down to reserve 4 bytes for return address
@@ -108,4 +111,4 @@ _pgfault_upcall:
 
 	// Return to re-execute the instruction that faulted.
 	// LAB 4: Your code here.
-    retl
+    ret

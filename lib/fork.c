@@ -27,8 +27,12 @@ pgfault(struct UTrapframe *utf)
 	// LAB 4: Your code here.
     // 19-05-09: maybe buggy.
     if ((err & FEC_WR) != FEC_WR || 
-            (((pte_t *)UVPT)[(uint32_t)addr >> 12] & PTE_COW) != PTE_COW)
+		!(uvpd[PDX(addr)] & PTE_P) || 
+		!(uvpt[PGNUM(addr)] & PTE_P) || 
+		!(uvpt[PGNUM(addr)] & PTE_COW)) {
+		cprintf("va:%x, err:%x, perm:%x", addr, err, uvpt[PGNUM(addr)]);
         panic("This should not be handled in user pgfault()!\n");
+	}
 
 	// Allocate a new page, map it at a temporary location (PFTEMP),
 	// copy the data from the old page to the new page, then move the new
@@ -54,7 +58,6 @@ pgfault(struct UTrapframe *utf)
 	if (sys_page_unmap(0, PFTEMP) < 0) {
 		panic("sys_page_map() 2 failed in pgfault().\n");
 	}
-
 	// panic("pgfault not implemented");
 }
 
@@ -73,22 +76,27 @@ static int
 duppage(envid_t envid, unsigned pn)
 {
 	int perm;
+	int r;
+	// static int debug_duppage_time = 1;
+	// cprintf("This is the %d times to call duppage.\n", debug_duppage_time++);
 
 	// LAB 4: Your code here.
 	// 19-05-09
-	perm = ((pte_t *)UVPT)[pn*PGSIZE >> 12] & 0x00000FFF;
-	if ((perm & (PTE_W|PTE_COW)) != 0) {
-		if (sys_page_map(0, (void *)(pn*PGSIZE), envid, (void *)(pn*PGSIZE), perm|PTE_COW) < 0) {
-			panic("sys_page_map() failed in duppage.\n");
+	perm = uvpt[pn] & 0x00000FFF;
+	// We have set PTE_A
+	// cprintf("perm is %x\n", perm);
+	if (perm & (PTE_W|PTE_COW)) {
+		if ((r = sys_page_map(0, (void *)(pn*PGSIZE), envid, (void *)(pn*PGSIZE), PTE_P|PTE_U|PTE_COW)) < 0) {
+			panic("sys_page_map() failed in duppage(): %e", r);
 		}
 		// Map our page to copy on wirte too.
-		if (sys_page_map(0, (void *)(pn*PGSIZE), 0, (void *)(pn*PGSIZE), perm|PTE_COW) < 0) {
-			panic("sys_page_map() failed in duppage.\n");
+		if ((r = sys_page_map(0, (void *)(pn*PGSIZE), 0, (void *)(pn*PGSIZE), PTE_P|PTE_U|PTE_COW)) < 0) {
+			panic("sys_page_map() failed in duppage(): %e", r);
 		}
 	}
 	else {
-		if (sys_page_map(0, (void *)(pn*PGSIZE), envid, (void *)(pn*PGSIZE), perm) < 0) {
-			panic("sys_page_map() failed in duppage,\n");
+		if ((r = sys_page_map(0, (void *)(pn*PGSIZE), envid, (void *)(pn*PGSIZE), PTE_U|PTE_P)) < 0) {
+			panic("sys_page_map() failed in duppage(): %e", r);
 		}
 	}
 	// panic("duppage not implemented");
@@ -116,27 +124,51 @@ fork(void)
 {
 	// LAB 4: Your code here.
     // 19-05-09
-	// Copy what it does in dumbfork.c.
-	extern unsigned char end[];
+
+	// This is used to set the env_pgfault_upcall for child process
+	// The env_pgfault_upcall of parent process will be set by set_pgfault_handler().
+	extern void _pgfault_upcall();
+
     envid_t envid;
     set_pgfault_handler(pgfault);
-    envid = sys_exofork();
+	envid = sys_exofork();
+
 	if (envid < 0) {
 		panic("sys_exofork() failed in fork() : %e\n", envid);
 	}
+	// For child environment, as dumbfork.c does.
 	if (envid == 0) {
 		thisenv = &envs[ENVX(sys_getenvid())];
 		return 0;
 	}
-	for (uint8_t *addr = (uint8_t*)UTEXT; addr < end; addr += PGSIZE) {
+	// Set env_pgfault_upcall for child process.
+	// ** Not pgfault_handler! **
+	if (sys_env_set_pgfault_upcall(envid, _pgfault_upcall) < 0) {
+		panic("sys_env_set_pgfault_upcall() failed in fork().");
+	}
+
+	// Copy what dumbfork.c does.
+	for (uint32_t addr = UTEXT; addr < UTOP; addr += PGSIZE) {
 		// Don't copy exception stack.
-		if (UXSTACKTOP - PGSIZE <= (uint32_t)addr && (uint32_t)addr < UXSTACKTOP)
+		if (UXSTACKTOP - PGSIZE <= addr && addr < UXSTACKTOP)
 			continue;
-		duppage(envid, (uint32_t)addr);
+		// Copy the page that:
+		// 1) the page table exists;
+		// 2) itself exitsts;
+		// 3) is user-accessible.
+		if ((uvpd[PDX(addr)] & PTE_P) && 
+			(uvpt[PGNUM(addr)] & PTE_P) &&
+			(uvpt[PGNUM(addr)] & PTE_U))
+			duppage(envid, PGNUM(addr));
 	}
 	// Allocate a page for child process's exception stack.
-	sys_page_alloc(envid, (void *)(UXSTACKTOP - PGSIZE), PTE_U|PTE_W|PTE_P);
-	return 0;
+	if (sys_page_alloc(envid, (void *)(UXSTACKTOP - PGSIZE), PTE_U|PTE_W|PTE_P) < 0) {
+		panic("sys_page_alloc() failed in fork().");
+	}
+	// Easy to forget it and spend 2 hours to fix it.
+	sys_env_set_status(envid, ENV_RUNNABLE);
+
+	return envid;
 	// panic("fork not implemented");
 }
 

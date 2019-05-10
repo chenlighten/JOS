@@ -110,6 +110,14 @@ trap_init(void)
     void SIMDERR();
     void SYSCALL();
 
+	// 19-05-10
+	void TIMER();
+	void KBD();
+	void SERIAL();
+	void SPURIOUS();
+	void IDE();
+	void ERROR();
+
     load_idt(0, 1, DIVIDE);
     load_idt(1, 1, DEBUG);
     load_idt(2, 0, NMI);
@@ -124,14 +132,22 @@ trap_init(void)
     load_idt(11, 0, SEGNP);
     load_idt(12, 1, STACK);
     load_idt(13, 0, GPFLT);
-    load_idt(14, 1, PGFLT);
+    load_idt(14, 0, PGFLT);
     // load_idt(15, RESERVED);
     load_idt(16, 0, FPERR);
     load_idt(17, 1, ALIGN);
     load_idt(18, 1, MCHK);
     load_idt(19, 0, SEGNP);
     // system call
-    load_idt(0x30, 1, SYSCALL);
+    load_idt(0x30, 0, SYSCALL);
+	// IRQs
+	// 19-05-10
+	load_idt(IRQ_OFFSET + IRQ_TIMER, 0, TIMER);
+	load_idt(IRQ_OFFSET + IRQ_KBD, 0, KBD);
+	load_idt(IRQ_OFFSET + IRQ_SERIAL, 0, SERIAL);
+	load_idt(IRQ_OFFSET + IRQ_SPURIOUS, 0, SPURIOUS);
+	load_idt(IRQ_OFFSET + IRQ_IDE, 0, IDE);
+	load_idt(IRQ_OFFSET + IRQ_ERROR, 0, ERROR);
 
 	// Per-CPU setup 
     trap_init_percpu();
@@ -265,6 +281,14 @@ trap_dispatch(struct Trapframe *tf)
        return;
     }
 
+	// 19-05-10
+	// Handle timer imterrupt.
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
+		lapic_eoi();
+		sched_yield();
+		return;
+	}
+
 
 	// Handle spurious interrupts
 	// The hardware sometimes raises these because of noise on the
@@ -295,6 +319,9 @@ trap(struct Trapframe *tf)
 	// The environment may have set DF and some versions
 	// of GCC rely on DF being clear
 	asm volatile("cld" ::: "cc");
+	// 19-05-10
+	// Comment tells me don't do this, but not found better way yet.
+	// asm volatile("cli");
 
 	// Halt the CPU if some other CPU has called panic()
 	extern char *panicstr;
@@ -404,10 +431,7 @@ page_fault_handler(struct Trapframe *tf)
     // 19-05-08
     // Have modified env_destroy and env_init to support this check.
     if (curenv->env_pgfault_upcall != NULL) {
-        // First check if the user program can access the address.
-        // user_mem_assert(curenv, (const void *)fault_va, 1, 0);
-
-        struct UTrapframe utf;
+		struct UTrapframe utf;
         // Set members of utf.
         utf.utf_fault_va = fault_va;
         utf.utf_err = tf->tf_err;
@@ -426,8 +450,11 @@ page_fault_handler(struct Trapframe *tf)
             tf->tf_esp = UXSTACKTOP - sizeof(struct UTrapframe);
         }
 
+		// Now check if the exception stack has been mapped
+		user_mem_assert(curenv, (const void *)tf->tf_esp, sizeof(struct UTrapframe), PTE_W|PTE_U);
+
         // Store utf onto the stack
-        // as if we pass it as a parameter.
+        // as we will pass it as a parameter.
         *(struct UTrapframe *)tf->tf_esp = utf; 
 
         // Change tf_eip and use env_run()

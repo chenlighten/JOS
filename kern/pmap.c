@@ -103,8 +103,8 @@ boot_alloc(uint32_t n)
 	// is automatically initialized to *0* .
 	if (!nextfree) {
 		extern char end[];
-		nextfree = ROUNDUP((char *) end, PGSIZE) + PGSIZE;
-        cprintf("end:%x", end);
+		nextfree = ROUNDUP((char *) end, PGSIZE);
+        // cprintf("end:%x", end);
 	}
 
 	// Allocate a chunk large enough to hold 'n' bytes, then update
