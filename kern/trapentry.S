@@ -48,9 +48,63 @@
  * Lab 3: Your code here for generating entry points for the different traps.
  */
 
+/*
+ * Added on April 7
+ * I don't know if this works.
+ * Just have a try.
+ * And I find which exceptions will push error code in wiki.
+ * Hopefully it's right.
+ */
+    TRAPHANDLER_NOEC(DIVIDE, T_DIVIDE)  ;
+    TRAPHANDLER_NOEC(DEBUG, T_DEBUG)    ;
+    TRAPHANDLER_NOEC(NMI, T_NMI)        ;
+    TRAPHANDLER_NOEC(BRKPT, T_BRKPT)    ;
+    TRAPHANDLER_NOEC(OFLOW, T_OFLOW)    ;
+    TRAPHANDLER_NOEC(BOUND, T_BOUND)    ;
+    TRAPHANDLER_NOEC(ILLOP, T_ILLOP)    ;
+    TRAPHANDLER_NOEC(DEVICE, T_DEVICE)  ;
+    TRAPHANDLER(DBLFLT, T_DBLFLT)  ;
+    TRAPHANDLER(TSS, T_TSS)        ;
+    TRAPHANDLER(SEGNP, T_SEGNP)    ;
+    TRAPHANDLER(STACK, T_STACK)    ;
+    TRAPHANDLER(GPFLT, T_GPFLT)    ;
+    TRAPHANDLER(PGFLT, T_PGFLT)    ;
+    TRAPHANDLER_NOEC(FPERR, T_FPERR)    ;
+    TRAPHANDLER(ALIGN, T_ALIGN)    ;
+    TRAPHANDLER_NOEC(MCHK, T_MCHK)      ;
+    TRAPHANDLER_NOEC(SIMDERR, T_SIMDERR);
 
+/*
+ * Wiki doesn't say whether these two exceptions cause CPU pushes an error code.
+ * I guess they don't.
+ */
+    TRAPHANDLER_NOEC(SYSCALL, T_SYSCALL);
+    TRAPHANDLER_NOEC(DEFAULT, T_DEFAULT);
+
+/*  
+ * 19-05-10, for IRQs.
+ */
+    TRAPHANDLER_NOEC(TIMER, IRQ_OFFSET + IRQ_TIMER);
+    TRAPHANDLER_NOEC(KBD, IRQ_OFFSET + IRQ_KBD);
+    TRAPHANDLER_NOEC(SERIAL, IRQ_OFFSET + IRQ_SERIAL);
+    TRAPHANDLER_NOEC(SPURIOUS, IRQ_OFFSET + IRQ_SPURIOUS);
+    TRAPHANDLER_NOEC(IDE, IRQ_OFFSET + IRQ_IDE);
+    TRAPHANDLER_NOEC(ERROR, IRQ_OFFSET + IRQ_ERROR);
 
 /*
  * Lab 3: Your code here for _alltraps
+ * Added on April 7
+ * I guess it use AT&T asm
  */
+_alltraps:
 
+    pushw $(0);
+    pushw %ds;
+    pushw $(0);
+    pushw %es;
+    pushal   ; /* The lab text suggests using this. It's an extremely graceful design! */
+    mov $(GD_KD), %eax;
+    mov %ax, %es;
+    mov %ax, %ds;
+    pushl %esp;
+    call trap;

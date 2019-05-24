@@ -30,6 +30,26 @@ sched_yield(void)
 	// below to halt the cpu.
 
 	// LAB 4: Your code here.
+    // 19-05-02
+    // curenv is NULL at the very beginning
+    // or when an environment kills itself.
+    if (curenv)
+        for (idle = curenv + 1;
+                !(idle->env_status == ENV_RUNNABLE || idle == curenv);
+                idle = envs + ((idle - envs) + 1) % NENV);
+    else
+        for (idle = envs;
+                !(idle->env_status == ENV_RUNNABLE || idle == envs + NENV);
+                idle++);
+
+    if (idle < envs + NENV && 
+            (idle->env_status == ENV_RUNNABLE || 
+             (idle == curenv &&
+              idle->env_status == ENV_RUNNING))) {
+        // We should call env_run even if the env doesn't change
+        // otherwise the kernel lock will not be released.
+        env_run(idle);
+    }
 
 	// sched_halt never returns
 	sched_halt();
@@ -76,7 +96,8 @@ sched_halt(void)
 		"pushl $0\n"
 		"pushl $0\n"
 		// Uncomment the following line after completing exercise 13
-		//"sti\n"
+		// 19-05-10
+		"sti\n"
 		"1:\n"
 		"hlt\n"
 		"jmp 1b\n"

@@ -21,11 +21,28 @@ static void boot_aps(void);
 void
 i386_init(void)
 {
+	extern char edata[], end[];
+    // Some varialbes for testing lab1.
+
+	// Before doing anything else, complete the ELF loading process.
+	// Clear the uninitialized global data (BSS) section of our program.
+	// This ensures that all static/global variables start out zero.
+	memset(edata, 0, end - edata);
+
 	// Initialize the console.
 	// Can't call cprintf until after we do this!
 	cons_init();
 
-	cprintf("6828 decimal is %o octal!\n", 6828);
+    // Some test in lab1.
+    // char chnum1 = 0, chnum2 = 0, ntest[256] = {};
+    // cprintf("6828 decimal is %o octal!%n\n%n", 6828, &chnum1, &chnum2);
+    // cprintf("pading space in the right to number 22: %-8d.\n", 22);
+    // cprintf("chnum1: %d chnum2: %d\n", chnum1, chnum2);
+    // cprintf("%n", NULL);
+    // memset(ntest, 0xd, sizeof(ntest) - 1);
+    // cprintf("%s%n", ntest, &chnum1);
+    // cprintf("chnum1: %d\n", chnum1);
+    // cprintf("show me the sign: %+d, %+d\n", 1024, -1024);
 
 	// Lab 2 memory management initialization functions
 	mem_init();
@@ -43,12 +60,14 @@ i386_init(void)
 
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
+    // 19-05-01
+    lock_kernel();
 
 	// Starting non-boot CPUs
 	boot_aps();
 
 	// Start fs.
-	ENV_CREATE(fs_fs, ENV_TYPE_FS);
+	// ENV_CREATE(fs_fs, ENV_TYPE_FS);
 
 #if defined(TEST)
 	// Don't touch -- used by grading script!
@@ -115,9 +134,13 @@ mp_main(void)
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
+    // 19-05-01
+    lock_kernel();
+    sched_yield();
+    
 
 	// Remove this after you finish Exercise 6
-	for (;;);
+	// for (;;);
 }
 
 /*

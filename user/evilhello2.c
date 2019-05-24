@@ -35,6 +35,7 @@ void call_fun_ptr()
 {
     evil();  
     *entry = old;  
+    asm volatile("popl %ebx");
     asm volatile("popl %ebp");
     asm volatile("lret");   
 }
@@ -78,13 +79,15 @@ void ring0_call(void (*fun_ptr)(void)) {
     old= *entry; 
 
     SETCALLGATE(*((struct Gatedesc*)entry), GD_KT, call_fun_ptr, 3);
-    asm volatile("lcall $0x20, $0");
+    asm volatile("lcall $0x20, $0");    
+    // Added on April 8
+    return;
 }
 
 void
 umain(int argc, char **argv)
 {
-        // call the evil function in ring0
+    // call the evil function in ring0
 	ring0_call(&evil);
 
 	// call the evil function in ring3
