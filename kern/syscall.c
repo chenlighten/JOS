@@ -233,6 +233,11 @@ sys_page_alloc(envid_t envid, void *va, int perm)
     if (!(pp = page_alloc(ALLOC_ZERO))) {
         return -E_NO_MEM;
     }
+    // 19-06-23
+    // I think referrence count should be increased here.
+    // Re-check it if buggy later.
+    pp->pp_ref++;
+
     pgdir = env->env_pgdir;
     // If there is already a page mapped, unmap it.
     page_remove(pgdir, va);
@@ -297,6 +302,7 @@ sys_page_map(envid_t srcenvid, void *srcva,
     }
     srcpgdir = srcenv->env_pgdir;
     dstpgdir = dstenv->env_pgdir;
+    // Buggy here, sometimes returns a pp with pp->pp_link != NULL
     if (!(pp = page_lookup(srcpgdir, srcva, &pte_ptr))) {
         return -E_INVAL;
     }

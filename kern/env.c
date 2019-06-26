@@ -427,9 +427,6 @@ void
 env_create(uint8_t *binary, enum EnvType type)
 {
 	// LAB 3: Your code here.
-
-	// If this is the file server (type == ENV_TYPE_FS) give it I/O privileges.
-	// LAB 5: Your code here.
 	
     // added on April 6.
     struct Env *newenv;
@@ -447,6 +444,15 @@ env_create(uint8_t *binary, enum EnvType type)
     // env_setup_vm(newenv);
     load_icode(newenv, binary);
     newenv->env_type = type;
+
+
+	// If this is the file server (type == ENV_TYPE_FS) give it I/O privileges.
+	// LAB 5: Your code here.
+	// 19-06-22
+	if (type == ENV_TYPE_FS) {
+		// Maybe needed to be modified.
+		newenv->env_tf.tf_eflags |= FL_IOPL_3;
+	}
 }
 
 //
@@ -591,7 +597,8 @@ env_run(struct Env *e)
     lcr3(PADDR(curenv->env_pgdir));
 
     // release the kernel lock right before switching to user mode
-    if (curenv->env_type == ENV_TYPE_USER) {
+    if (curenv->env_type == ENV_TYPE_USER || 
+		curenv->env_type == ENV_TYPE_FS) {
         unlock_kernel();
     }
 

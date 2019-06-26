@@ -42,8 +42,8 @@ sched_yield(void)
                 !(idle->env_status == ENV_RUNNABLE || idle == envs + NENV);
                 idle++);
 
-    if (idle < envs + NENV && 
-            (idle->env_status == ENV_RUNNABLE || 
+    if (idle < envs + NENV &&
+            (idle->env_status == ENV_RUNNABLE ||
              (idle == curenv &&
               idle->env_status == ENV_RUNNING))) {
         // We should call env_run even if the env doesn't change
